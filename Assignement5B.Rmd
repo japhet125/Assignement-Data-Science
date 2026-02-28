@@ -1,0 +1,27 @@
+---
+title: "ELO Calculation"
+author: "Guibril Ramde"
+date: "02-26-2026"
+output: html_document
+---
+
+#Approach
+In this assignment, I will extend the analysis conducted in Project 1 by leveraging the structured dataset previously created from the tournament results. Using the cleaned and organized player data, I will calculate each player’s expected score based on the Elo rating system.
+
+The expected score will be computed using the standard Elo formula, which estimates the probability of a player scoring a point against each opponent based on the difference in their pre-tournament ratings. For each player, I will:
+
+1 - Retrieve the ratings of all opponents faced during the tournament.
+
+2 - Apply the Elo expected score formula to calculate the expected outcome for each individual match.
+
+3 - Sum the expected values across all rounds to obtain the player’s total expected score.
+
+4 - Compare the expected score to the player’s actual tournament points.
+
+The difference between actual performance and expected performance will be used to determine whether a player overperformed (actual score greater than expected) or underperformed (actual score lower than expected).
+
+Finally, I will identify and report:
+
+- The five players who most significantly overperformed relative to expectations.
+
+- The five players who most significantly underperformed relative to expectations.

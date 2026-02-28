@@ -1,0 +1,119 @@
+---
+title: "Airport Delays"
+author: "Guibril Ramde"
+date: "02-26-2026"
+output: html_document
+---
+
+#Approach
+For Assignment 5A, the first step is to manually construct the dataset in Microsoft Excel using the structure provided in the original chart. The data will be organized in a wide format, preserving the layout of airlines, flight status (on time vs. delayed), and destinations.
+
+After verifying accuracy, the file is exported as a comma-separated values (.csv) file to ensure compatibility with R. The CSV file was then uploaded to my GitHub repository, and the raw file URL was used to import the dataset directly into R using the read_csv() function.
+```{r}
+get_url <- "https://raw.githubusercontent.com/japhet125/Assignement-Data-Science/refs/heads/main/Assignment5A.csv"
+get_data <- read.csv(get_url)
+head(get_data)
+#colnames(get_data)
+```
+
+Once the data were successfully loaded, I will use the tidyverse packages, particularly tidyr and dplyr, to reshape and clean the dataset. Specifically, I will transforme the data from wide format to long format to facilitate comparison and analysis. This restructuring allowed for clearer aggregation and calculation of delay totals and delay rates across airlines and destinations.
+
+The cleaned dataset will then used to compare arrival delays between Alaska and AmWest Airlines, focusing on both total delays and proportional delay rates to ensure a meaningful and accurate comparison.
+
+```{r}
+airlines_delays <- get_data |>
+  pivot_longer(
+    cols = -c(Airline, Status),
+    names_to = "Destination",
+    values_to = "Count"
+    
+  )
+airlines_delays
+  
+#colnames(airlines_delays)
+
+```
+#trying wider and shorter
+
+```{r}
+#airlines_delays <- get_data |>
+#  pivot_wider(
+  #  names_from = "Airline",
+  #  values_from = "Status"
+ # )
+#airlines_delays
+#colnames(airlines_delays)
+```
+
+# we can compare airlines delays
+By comparing Airlines delays we can see that AmWest have more delays than Alaska
+
+```{r}
+airlines_delays |>
+  filter(Status == 'delayed') %>%
+  group_by(Airline, Destination) %>%
+  summarise(Total_delays = sum(Count), .groups = "drop")
+
+```
+#we can compare airlines ontime
+
+By comparing Airlines on time we can see that AmWest has more on time than Alaska
+
+```{r}
+airlines_delays |>
+  filter(Status == 'on time') %>%
+  group_by(Airline, Destination) %>%
+  summarise(Total_on_time = sum(Count), .groups = "drop")
+
+```
+
+# Calculating the delays rate
+the delay rate show that Alaska has a delay rate greater than AmWest when combine.
+```{r}
+delay_summary <- airlines_delays |>
+ # filter(Status) %>%
+  group_by(Airline, Destination, Status) %>%
+  summarise(Total = sum(Count), .groups = "drop") %>%
+  pivot_wider(names_from = "Status", values_from = "Total") %>%
+  mutate(delay_rate = delayed / (`on time` + delayed) )
+ # select(delay_rate)
+delay_summary
+```
+```{r}
+delay_summar <- airlines_delays |>
+ # filter(Status) %>%
+  group_by(Airline, Status) %>%
+  summarise(Total = sum(Count), .groups = "drop") %>%
+  pivot_wider(names_from = "Status", values_from = "Total") %>%
+  mutate(delay_rate = delayed / (`on time` + delayed) )
+ # select(delay_rate)
+delay_summar
+```
+#using ggplot to analyze
+AmWest has a greater total number of delayed flights compared to Alaska when aggregating across all destinations
+according to the ggplot bar geom_col.
+```{r}
+airlines_delays |>
+  ggplot(aes(x =  Airline, y = Count, fill = Status)) + geom_col()
+```
+# we can plot the delay rate and analyze by destination
+AmWest has a greater total number of delayed flights compared to Alaska when aggregating across all destinations.
+
+```{r}
+delay_summary |>
+  ggplot(aes(x = Airline, y = delay_rate)) + geom_col()
+```
+#we can plot the total delay rate from all destination
+here with the total delay rate of all destination we can see that Alaska has more delay rate.
+```{r}
+delay_summar |>
+  ggplot(aes(x = Airline, y = delay_rate)) + geom_col()
+```
+
+#Conclusion
+
+The analysis demonstrates that while AmWest has a higher total number of delayed flights, this is largely due to operating a substantially greater number of flights overall. When examining proportional delay rates, Alaska exhibits a higher delay rate than AmWest.
+
+This outcome highlights the importance of analyzing relative proportions rather than relying solely on aggregated totals. The results illustrate Simpson’s Paradox, where aggregated data can lead to misleading conclusions if underlying group distributions are not considered.
+
+This assignment emphasizes the importance of data tidying, transformation, and careful interpretation when performing comparative analyses.
