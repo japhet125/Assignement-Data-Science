@@ -25,3 +25,267 @@ Finally, I will identify and report:
 - The five players who most significantly overperformed relative to expectations.
 
 - The five players who most significantly underperformed relative to expectations.
+
+**raw link from github**
+
+```{r}
+file_local <- "tournamentinfo.txt"
+file_url <- "https://raw.githubusercontent.com/japhet125/Project1-Data-Science/refs/heads/main/tournamentinfo.txt"
+if (file.exists(file_local)){
+  info <- readLines(file_local)
+} else {
+  info <- readLines(file_url)
+}
+#info
+head(info)
+```
+
+# process cleaning data
+```{r}
+clean_lines <- info[!grepl("^-", info)]
+
+clean_lines <- clean_lines[clean_lines != ""]
+
+head(clean_lines)
+#clean_lines
+```
+
+#cleaning data removing header
+```{r}
+clean_lines <- clean_lines[!grepl("^\\s*Pair", clean_lines)]
+clean_lines <- clean_lines[!grepl("^\\s*Num", clean_lines)]
+head(clean_lines, 4)
+```
+
+#group every two rows
+```{r}
+player_blocks <- split(clean_lines, ceiling(seq_along(clean_lines)/2))
+player_blocks[[1]]
+```
+
+#Extracting fields from players
+```{r}
+library(stringr)
+block <- player_blocks[[1]]
+row1 <- block[1]
+row2 <- block[2]
+```
+
+#Extracting player number
+```{r}
+player_num <- str_extract(row1, "^\\s*\\d+")
+player_num
+```
+
+#Extracting player name
+```{r}
+name <- str_trim(str_extract(row1, "(?<=\\| ).*?(?=\\s+\\|)"))
+name
+
+```
+
+#Extracting total Points
+```{r}
+points <- str_extract(row1, "\\d+\\.\\d")
+points
+```
+
+#Extracting state
+```{r}
+state <- str_extract(row2, "^[^|]+")
+state
+```
+
+#Extracting pre-rating
+
+```{r}
+pre_rating <- str_extract(row2, "R:\\s*\\d+")
+pre_rating
+```
+
+#building the data frame
+
+```{r}
+players_df <- data.frame()
+for (block in player_blocks) {
+  row1 <- block[1]
+  row2 <- block[2]
+  
+  player_num <- as.numeric(str_extract(row1, "^\\s*\\d+"))
+  
+  name <- str_trim(str_extract(row1, "(?<=\\| ).*?(?=\\s+\\|)"))
+  
+  points <- as.numeric(str_extract(row1, "\\d+\\.\\d"))
+  
+  state <- str_trim(str_extract(row2, "^[^|]+"))
+  
+  pre_rating <- str_extract(row2, "R:\\s*\\d+")
+  pre_rating <- as.numeric(str_extract(pre_rating, "\\d+"))
+  
+  opponents <- str_extract_all(row1, "(?<=\\s)\\d{1,2}(?=\\|)")[[1]]
+  opponents <- as.numeric(opponents)
+  
+  players_df <- rbind(players_df, data.frame(
+    player_num,
+    name,
+    state,
+    points,
+    pre_rating,
+    opponents = I(list(opponents))
+  ))
+  
+}
+head(players_df)
+```
+
+# calculating the average opponent pre-rating
+Look at their list of opponent IDs
+
+Find those opponents in the dataframe
+
+Get their ratings
+
+Compute the average
+
+Store it as a new column
+```{r}
+players_df$avg_opponent_rating <- sapply(players_df$opponents, function(opp_ids) {
+  opp_ratings <- players_df$pre_rating[
+    players_df$player_num %in% opp_ids
+  ]
+  mean(opp_ratings)
+})
+players_df$avg_opponent_rating <- round(players_df$avg_opponent_rating, 0)
+players_df[1, ]
+
+```
+
+#Exporting it to a .csv file
+```{r}
+write.csv(
+  players_df[, c("name", "state", "points", "pre_rating", "avg_opponent_rating")],
+  "tournamentinfo_results.csv",
+  row.names = FALSE
+)
+```
+
+
+# visualizing with a scatterplot
+```{r}
+library(ggplot2)
+library(dplyr)
+library(ggpubr)
+players_df %>%
+  ggplot(aes(x = avg_opponent_rating, y = pre_rating, color = state)) +
+  geom_point(size = 3, alpha = 0.3) +
+  geom_smooth(method = "lm") +
+  stat_cor(aes(label = ..r.label..),  method =  "pearson", 
+          label.x = min(players_df$avg_opponent_rating),
+          label.y = max(players_df$pre_rating)) +
+  labs(
+    title = "Player Pre-Rating vs Average Opponent Rating",
+    x = "Average Opponent Pre-Rating",
+    y = "Player Pre-Rating"
+  )+
+  theme_minimal()
+
+  
+```
+
+#getting the top 10 players by total point
+```{r}
+top10 <- players_df %>%
+  arrange(desc(points), desc(pre_rating)) %>%
+  select(name, points, pre_rating, avg_opponent_rating) %>%
+  head(10)
+top10
+```
+#Calculating the average rating by state
+```{r}
+avg_by_state <- players_df %>%
+  group_by(state) %>%
+  summarise(avg_rating = mean(pre_rating, na.rm = TRUE)) %>%
+  arrange(desc(avg_rating))
+avg_by_state
+```
+
+#visualize and analyse
+```{r}
+avg_by_state %>%
+  ggplot(aes(x = reorder(state, avg_rating), y = avg_rating, fill = state)) +
+  geom_bar(stat = "identity") +
+  geom_text(aes(label = round(avg_rating, 0)), hjust = -0.2, size = 4) +
+  #coord_flip()+
+  labs(
+    title = "Average Pre-Rating by State",
+    x = "State",
+    y = "Average Pre-Rating"
+  )+
+  theme_minimal()
+```
+
+#installing packages
+```{r}
+
+library(ggpubr)
+library(ggplot2)
+library(dplyr)
+library(DBI)
+library(RSQLite)
+```
+
+#Assignement 5B begin here
+```{r}
+players_df$expected_score <- sapply(1:nrow(players_df), function(i){
+  player_rating <- players_df$pre_rating[i]
+  opponent_ids <- players_df$opponents[[i]]
+  
+  
+  opponent_ratings <- players_df$pre_rating[
+    players_df$player_num %in% opponent_ids
+  ]
+  
+  expected_each <- 1 / (1 + 10^((opponent_ratings - player_rating)/400))
+
+  sum(expected_each)
+})
+```
+
+#computing over/under performance of each player
+```{r}
+players_df$performance_diff <- players_df$points - players_df$expected_score
+
+```
+
+#selecting the 5 top performers
+```{r}
+top_over <- players_df %>%
+  arrange(desc(performance_diff)) %>%
+  select(name, points, expected_score, performance_diff) %>%
+  head(5)
+top_over
+```
+#top 5 underperformes
+```{r}
+top_under <- players_df %>%
+  arrange(performance_diff) %>%
+  select(name, points, expected_score,  performance_diff) %>%
+  head(5)
+top_under
+
+```
+#visualizing performance over plot
+The analysis reveals that some lower-rated players significantly outperformed expectations, suggesting either strong tournament form or underestimation by their pre-tournament rating. Conversely, several higher-rated players underperformed relative to their expected scores, indicating variance inherent in competitive tournaments.
+```{r}
+players_df %>%
+  ggplot(aes(x = expected_score, y = points)) + geom_point() +
+  geom_abline(color = "blue") + labs(
+    title = "Actual Score vs Expected Score",
+    x = "Expected Score",
+    y = "Actual Score"
+  ) +
+  theme_minimal()
+
+```
+# Conclusion
+The expected score for each player was calculated using the standard Elo rating formula as defined by Arpad Elo and adopted by FIDE. The model estimates the probability of a player scoring a point against each opponent based on rating differences. Summing these probabilities across all rounds produces the total expected score. Comparing expected scores to actual performance allows identification of players who significantly overperformed or underperformed relative to their rating.
