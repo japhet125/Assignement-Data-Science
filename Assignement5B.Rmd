@@ -287,5 +287,7 @@ players_df %>%
   theme_minimal()
 
 ```
-# Conclusion
-The expected score for each player was calculated using the standard Elo rating formula as defined by Arpad Elo and adopted by FIDE. The model estimates the probability of a player scoring a point against each opponent based on rating differences. Summing these probabilities across all rounds produces the total expected score. Comparing expected scores to actual performance allows identification of players who significantly overperformed or underperformed relative to their rating.
+
+#Conclusion
+
+ The expected score for each player was calculated using the standard Elo rating formula as defined by Arpad Elo and adopted by FIDE. The model estimates the probability of a player scoring a point against each opponent based on rating differences. Summing these probabilities across all rounds produces the total expected score. Comparing expected scores to actual performance allows identification of players who significantly overperformed or underperformed relative to their rating.
